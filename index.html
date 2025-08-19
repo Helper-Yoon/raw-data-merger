@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>채널톡 RAW데이터 병합기 v.2.0</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #F0F4F8;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 650px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #007BFF, #0056b3);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .upload-area {
+            border: 2px dashed #007BFF;
+            border-radius: 8px;
+            padding: 40px 20px;
+            text-align: center;
+            background: #F8F9FA;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .upload-area:hover {
+            border-color: #0056b3;
+            background: #E7F3FF;
+        }
+
+        .upload-area.dragover {
+            border-color: #0056b3;
+            background: #E7F3FF;
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            color: #007BFF;
+            margin-bottom: 15px;
+        }
+
+        .upload-text {
+            color: #6C757D;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        .upload-subtext {
+            color: #ADB5BD;
+            font-size: 12px;
+        }
+
+        .file-input {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .file-list {
+            background: #F8F9FA;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            min-height: 200px;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #E9ECEF;
+        }
+
+        .file-list-header {
+            background: #FFFFFF;
+            padding: 15px 20px;
+            border-bottom: 1px solid #E9ECEF;
+            font-weight: 700;
+            color: #495057;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 20px;
+            border-bottom: 1px solid #E9ECEF;
+            transition: background-color 0.2s ease;
+        }
+
+        .file-item:hover {
+            background: #E9ECEF;
+        }
+
+        .file-item:last-child {
+            border-bottom: none;
+        }
+
+        .file-info {
+            display: flex;
+            align-items: center;
+            flex: 1;
+        }
+
+        .file-icon {
+            font-size: 20px;
+            margin-right: 12px;
+            color: #28A745;
+        }
+
+        .file-name {
+            font-weight: 500;
+            color: #495057;
+            margin-right: 10px;
+        }
+
+        .file-size {
+            font-size: 12px;
+            color: #6C757D;
+        }
+
+        .remove-btn {
+            background: #DC3545;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background-color 0.2s ease;
+        }
+
+        .remove-btn:hover {
+            background: #C82333;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 14px;
+        }
+
+        .btn-primary {
+            background: #007BFF;
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #0056b3;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: #6C757D;
+            color: white;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: #545B62;
+        }
+
+        .btn-danger {
+            background: #DC3545;
+            color: white;
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background: #C82333;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .merge-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #28A745, #20C997);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+
+        .merge-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(40, 167, 69, 0.3);
+        }
+
+        .merge-btn:disabled {
+            background: #6C757D;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .progress-container {
+            margin-bottom: 20px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #E9ECEF;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #007BFF, #0056b3);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        .progress-text {
+            text-align: center;
+            margin-top: 8px;
+            color: #6C757D;
+            font-size: 14px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #ADB5BD;
+        }
+
+        .empty-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+        }
+
+        .alert-success {
+            background: #D4EDD6;
+            color: #155724;
+            border: 1px solid #C3E6CB;
+        }
+
+        .alert-error {
+            background: #F8D7DA;
+            color: #721C24;
+            border: 1px solid #F5C6CB;
+        }
+
+        .alert-icon {
+            margin-right: 8px;
+            font-size: 16px;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .excluded-sheets {
+            background: #FFF3CD;
+            border: 1px solid #FFEAA7;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .excluded-sheets h4 {
+            color: #856404;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .excluded-sheets p {
+            color: #856404;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useRef, useCallback } = React;
+
+        function ExcelMergerApp() {
+            const [files, setFiles] = useState([]);
+            const [isProcessing, setIsProcessing] = useState(false);
+            const [progress, setProgress] = useState(0);
+            const [alert, setAlert] = useState(null);
+            const fileInputRef = useRef(null);
+
+            const excludedSheets = [
+                'Workflow data', 'Team data', 'Bot data', 'User data',
+                'UserChatTag data', 'UserChat meet data', 'SupportBot data'
+            ];
+
+            const showAlert = (type, message) => {
+                setAlert({ type, message });
+                setTimeout(() => setAlert(null), 5000);
+            };
+
+            const formatFileSize = (bytes) => {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            };
+
+            const handleFileSelect = useCallback((selectedFiles) => {
+                const newFiles = Array.from(selectedFiles).filter(file => 
+                    file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+                    file.type === 'application/vnd.ms-excel' ||
+                    file.name.endsWith('.xlsx') ||
+                    file.name.endsWith('.xls')
+                );
+
+                if (newFiles.length !== selectedFiles.length) {
+                    showAlert('error', '엑셀 파일(.xlsx, .xls)만 업로드 가능합니다.');
+                }
+
+                setFiles(prev => {
+                    const existingNames = prev.map(f => f.name);
+                    const uniqueFiles = newFiles.filter(f => !existingNames.includes(f.name));
+                    
+                    if (uniqueFiles.length !== newFiles.length) {
+                        showAlert('error', '이미 추가된 파일은 제외되었습니다.');
+                    }
+                    
+                    return [...prev, ...uniqueFiles];
+                });
+            }, []);
+
+            const handleDrop = useCallback((e) => {
+                e.preventDefault();
+                e.currentTarget.classList.remove('dragover');
+                handleFileSelect(e.dataTransfer.files);
+            }, [handleFileSelect]);
+
+            const handleDragOver = useCallback((e) => {
+                e.preventDefault();
+                e.currentTarget.classList.add('dragover');
+            }, []);
+
+            const handleDragLeave = useCallback((e) => {
+                e.preventDefault();
+                e.currentTarget.classList.remove('dragover');
+            }, []);
+
+            const removeFile = (index) => {
+                setFiles(prev => prev.filter((_, i) => i !== index));
+            };
+
+            const clearAllFiles = () => {
+                setFiles([]);
+            };
+
+            const processExcelFile = async (file) => {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const data = new Uint8Array(e.target.result);
+                            const workbook = XLSX.read(data, { type: 'array' });
+                            resolve(workbook);
+                        } catch (error) {
+                            reject(error);
+                        }
+                    };
+                    reader.onerror = () => reject(new Error('파일 읽기 실패'));
+                    reader.readAsArrayBuffer(file);
+                });
+            };
+
+            const mergeFiles = async () => {
+                if (files.length === 0) {
+                    showAlert('error', '병합할 파일을 먼저 추가해주세요.');
+                    return;
+                }
+
+                setIsProcessing(true);
+                setProgress(0);
+
+                try {
+                    const mergedWorkbook = XLSX.utils.book_new();
+                    let sheetCount = 1;
+                    const totalFiles = files.length;
+
+                    for (let i = 0; i < files.length; i++) {
+                        const file = files[i];
+                        
+                        try {
+                            const workbook = await processExcelFile(file);
+                            
+                            for (const sheetName of workbook.SheetNames) {
+                                // 시트 이름에서 .csv 제거
+                                const cleanedName = sheetName.replace('.csv', '');
+                                
+                                // 제외할 시트인지 확인
+                                if (excludedSheets.includes(cleanedName)) {
+                                    continue;
+                                }
+                                
+                                const worksheet = workbook.Sheets[sheetName];
+                                let newSheetName = `${sheetCount.toString().padStart(2, '0')}_${cleanedName}`;
+                                
+                                // 시트 이름이 31자를 초과하지 않도록 처리
+                                if (newSheetName.length > 31) {
+                                    newSheetName = newSheetName.substring(0, 31);
+                                }
+                                
+                                XLSX.utils.book_append_sheet(mergedWorkbook, worksheet, newSheetName);
+                                sheetCount++;
+                            }
+                        } catch (error) {
+                            console.error(`파일 ${file.name} 처리 중 오류:`, error);
+                            showAlert('error', `파일 ${file.name} 처리 중 오류가 발생했습니다.`);
+                        }
+                        
+                        setProgress(((i + 1) / totalFiles) * 100);
+                    }
+
+                    // 결과 파일 다운로드
+                    const excelBuffer = XLSX.write(mergedWorkbook, { 
+                        bookType: 'xlsx', 
+                        type: 'array' 
+                    });
+                    
+                    const data = new Blob([excelBuffer], { 
+                        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+                    });
+                    
+                    const url = window.URL.createObjectURL(data);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `merged_channeltalk_data_${new Date().toISOString().slice(0, 10)}.xlsx`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    window.URL.revokeObjectURL(url);
+                    
+                    showAlert('success', '파일이 성공적으로 병합되어 다운로드되었습니다!');
+                    
+                } catch (error) {
+                    console.error('병합 중 오류:', error);
+                    showAlert('error', `파일 병합 중 오류가 발생했습니다: ${error.message}`);
+                } finally {
+                    setIsProcessing(false);
+                    setProgress(0);
+                }
+            };
+
+            return (
+                <div className="container">
+                    <div className="header">
+                        <h1>채널톡 RAW데이터 병합기</h1>
+                        <p>여러 엑셀 파일을 하나로 병합해보세요 - 웹 버전 v.2.0</p>
+                    </div>
+                    
+                    <div className="content">
+                        {alert && (
+                            <div className={`alert alert-${alert.type} fade-in`}>
+                                <span className="alert-icon">
+                                    {alert.type === 'success' ? '✅' : '❌'}
+                                </span>
+                                {alert.message}
+                            </div>
+                        )}
+
+                        <div className="excluded-sheets">
+                            <h4>🚫 제외되는 시트</h4>
+                            <p>{excludedSheets.join(', ')}</p>
+                        </div>
+                        
+                        <div 
+                            className="upload-area"
+                            onDrop={handleDrop}
+                            onDragOver={handleDragOver}
+                            onDragLeave={handleDragLeave}
+                            onClick={() => fileInputRef.current?.click()}
+                        >
+                            <div className="upload-icon">📁</div>
+                            <div className="upload-text">
+                                엑셀 파일을 여기에 끌어다 놓거나 클릭하세요
+                            </div>
+                            <div className="upload-subtext">
+                                .xlsx, .xls 파일만 지원됩니다
+                            </div>
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                multiple
+                                accept=".xlsx,.xls"
+                                className="file-input"
+                                onChange={(e) => handleFileSelect(e.target.files)}
+                            />
+                        </div>
+
+                        <div className="file-list">
+                            <div className="file-list-header">
+                                📋 병합할 파일 목록 ({files.length}개)
+                            </div>
+                            
+                            {files.length === 0 ? (
+                                <div className="empty-state">
+                                    <div className="empty-icon">📄</div>
+                                    <div>아직 추가된 파일이 없습니다</div>
+                                </div>
+                            ) : (
+                                files.map((file, index) => (
+                                    <div key={index} className="file-item fade-in">
+                                        <div className="file-info">
+                                            <span className="file-icon">📊</span>
+                                            <span className="file-name">{file.name}</span>
+                                            <span className="file-size">({formatFileSize(file.size)})</span>
+                                        </div>
+                                        <button 
+                                            className="remove-btn"
+                                            onClick={() => removeFile(index)}
+                                        >
+                                            제거
+                                        </button>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+
+                        <div className="button-group">
+                            <button 
+                                className="btn btn-secondary"
+                                onClick={clearAllFiles}
+                                disabled={files.length === 0 || isProcessing}
+                            >
+                                🗑️ 모두 제거
+                            </button>
+                        </div>
+
+                        <button 
+                            className="merge-btn"
+                            onClick={mergeFiles}
+                            disabled={files.length === 0 || isProcessing}
+                        >
+                            {isProcessing ? (
+                                <>
+                                    <span className="loading-spinner"></span>
+                                    병합 중...
+                                </>
+                            ) : (
+                                '🚀 병합 실행'
+                            )}
+                        </button>
+
+                        {(isProcessing || progress > 0) && (
+                            <div className="progress-container fade-in">
+                                <div className="progress-bar">
+                                    <div 
+                                        className="progress-fill"
+                                        style={{ width: `${progress}%` }}
+                                    ></div>
+                                </div>
+                                <div className="progress-text">
+                                    {Math.round(progress)}% 완료
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<ExcelMergerApp />, document.getElementById('root'));
+    </script>
+</body>
+</html>
